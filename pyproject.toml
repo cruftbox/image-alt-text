@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "image-alt-text"
+version = "1.0.0"
+description = "Generate image alt text using Claude AI with Windows Explorer integration"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+keywords = ["accessibility", "alt-text", "claude", "ai", "images", "windows"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "anthropic>=0.18.0",
+    "Pillow>=10.0.0",
+]
+
+[project.scripts]
+image-alt-text = "image_alt_text.cli:main"
+image-alt-text-install = "image_alt_text.installer:install"
+image-alt-text-uninstall = "image_alt_text.installer:uninstall"
+
+[project.urls]
+Homepage = "https://github.com/cruftbox/image-alt-text"
+Issues = "https://github.com/cruftbox/image-alt-text/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
