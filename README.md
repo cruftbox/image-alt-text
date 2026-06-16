@@ -21,7 +21,7 @@ This tool uses Anthropic's Claude AI to automatically generate descriptive alt t
 
 1. You right-click an image file in Windows Explorer
 2. Select "Generate Alt Text" from the context menu
-3. The tool sends the image to Claude AI via Anthropic's API
+3. The tool sends the image to Claude (Sonnet 4.6) via Anthropic's API
 4. Claude analyzes the image and generates concise, descriptive alt text
 5. A browser window opens displaying the alt text with a copy button
 
@@ -77,6 +77,8 @@ set ANTHROPIC_API_KEY=your-api-key-here
 $env:ANTHROPIC_API_KEY = "your-api-key-here"
 ```
 
+> **Note:** Programs launched from the right-click menu inherit Explorer's environment, which is captured when you sign in. If you set or change `ANTHROPIC_API_KEY` while already signed in, sign out and back in (or reboot) so the menu sees it. The standalone script (below) reads the key from the registry directly, so it works without a restart. See [Troubleshooting](#troubleshooting) for details.
+
 ### Step 3: Install Windows Integration
 
 Run the installer to add the right-click context menu:
@@ -86,6 +88,35 @@ image-alt-text-install
 ```
 
 This adds "Generate Alt Text" to the right-click menu for image files.
+
+### Alternative: Standalone Script (No Package Install)
+
+The repository also includes a self-contained `generate_alt_text.py` script that does the same thing without installing the package. It uses Claude Sonnet 4.6 and reads your API key from the `ANTHROPIC_API_KEY` environment variable.
+
+1. Install the dependencies:
+
+   ```bash
+   pip install anthropic Pillow
+   ```
+
+2. Set your `ANTHROPIC_API_KEY` environment variable (see Step 2 above).
+3. Run it directly:
+
+   ```bash
+   python generate_alt_text.py path/to/image.jpg
+   ```
+
+To wire the standalone script into the right-click menu manually, add a registry command for each image extension (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`) under:
+
+```
+HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\<ext>\shell\GenerateAltText\command
+```
+
+with the `(Default)` value:
+
+```
+"C:\Path\To\python.exe" "C:\Path\To\generate_alt_text.py" "%1"
+```
 
 ## Usage
 
@@ -133,9 +164,13 @@ pip uninstall image-alt-text
 
 ## Troubleshooting
 
-### "ANTHROPIC_API_KEY environment variable not set"
+### "ANTHROPIC_API_KEY environment variable not set" or "No API key found"
 
-Make sure you've set the API key as described in Step 2 above. If you set it via Windows Settings, you need to restart your terminal or Explorer.
+Make sure you've set the API key as described in Step 2 above.
+
+Windows programs inherit their environment from whatever launched them, and right-click menu items are launched by Explorer — which captures its environment when you sign in. So if you set or change `ANTHROPIC_API_KEY` while already signed in, the menu won't see the new value until the environment is refreshed. The most reliable way to refresh it is to **sign out and back in** (or reboot). Restarting Explorer by itself often isn't enough, because newly launched programs still inherit the cached environment.
+
+The standalone `generate_alt_text.py` script avoids this entirely: when the key isn't present in the environment, it reads `ANTHROPIC_API_KEY` directly from the registry, so it works as soon as the variable is set — no restart needed.
 
 ### "Image exceeds 5 MB maximum"
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Command-line interface for generating alt text from images using Claude AI.
+Generate alt text for images using Claude API.
+Right-click context menu integration for Windows 11.
 """
 
 import sys
@@ -14,28 +15,22 @@ from pathlib import Path
 try:
     import anthropic
 except ImportError:
-    print("Error: anthropic package not installed.")
-    print("Run: pip install anthropic")
+    print("Please install the anthropic package: pip install anthropic")
     sys.exit(1)
 
 try:
     from PIL import Image
 except ImportError:
-    print("Error: Pillow package not installed.")
-    print("Run: pip install Pillow")
+    print("Please install Pillow for image resizing: pip install Pillow")
     sys.exit(1)
 
-# ~3.5MB raw stays under 5MB after base64 encoding (+33% overhead)
-MAX_IMAGE_SIZE = 3500000
+MAX_IMAGE_SIZE = 3500000  # ~3.5MB raw to stay under 5MB after base64 encoding (+33% overhead)
 
-
-def get_api_key() -> str | None:
-    """Get API key from environment variable."""
-    return os.environ.get("ANTHROPIC_API_KEY")
-
+# Set your API key here or use environment variable ANTHROPIC_API_KEY
+API_KEY = "YOUR_API_KEY_HERE"
 
 def get_media_type(file_path: str) -> str:
-    """Get the MIME type based on file extension."""
+    """Get the media type based on file extension."""
     ext = Path(file_path).suffix.lower()
     media_types = {
         ".jpg": "image/jpeg",
@@ -46,14 +41,8 @@ def get_media_type(file_path: str) -> str:
     }
     return media_types.get(ext, "image/jpeg")
 
-
 def resize_image_if_needed(image_path: str) -> tuple[bytes, str]:
-    """
-    Resize image if it exceeds the maximum size for the API.
-
-    Returns:
-        Tuple of (image_bytes, media_type)
-    """
+    """Resize image if it exceeds the maximum size. Returns (image_bytes, media_type)."""
     file_size = os.path.getsize(image_path)
     media_type = get_media_type(image_path)
 
@@ -65,7 +54,7 @@ def resize_image_if_needed(image_path: str) -> tuple[bytes, str]:
 
     img = Image.open(image_path)
 
-    # Convert to RGB if necessary (handles PNG transparency, palette images, etc.)
+    # Convert to RGB if necessary (for PNG with transparency)
     if img.mode in ('RGBA', 'LA', 'P'):
         background = Image.new('RGB', img.size, (255, 255, 255))
         if img.mode == 'P':
@@ -75,7 +64,7 @@ def resize_image_if_needed(image_path: str) -> tuple[bytes, str]:
     elif img.mode != 'RGB':
         img = img.convert('RGB')
 
-    # Progressively reduce quality and size until under limit
+    # Progressively reduce size until under limit
     quality = 85
     scale = 1.0
 
@@ -100,26 +89,44 @@ def resize_image_if_needed(image_path: str) -> tuple[bytes, str]:
             quality = 85
 
         if scale < 0.2:
-            # Return what we have as last resort
             return buffer.getvalue(), "image/jpeg"
+
+def get_api_key() -> str | None:
+    """Resolve the Anthropic API key.
+
+    Order: hardcoded API_KEY (if set) -> ANTHROPIC_API_KEY in the process
+    environment -> the User-level ANTHROPIC_API_KEY read directly from the
+    registry. The registry fallback matters on Windows because programs
+    launched from Explorer inherit Explorer's environment, which can be a
+    stale snapshot missing variables set after Explorer started.
+    """
+    if API_KEY != "YOUR_API_KEY_HERE":
+        return API_KEY
+
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return key
+
+    if sys.platform == "win32":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as reg_key:
+                value, _ = winreg.QueryValueEx(reg_key, "ANTHROPIC_API_KEY")
+                return value or None
+        except OSError:
+            return None
+
+    return None
 
 
 def generate_alt_text(image_path: str) -> str:
-    """
-    Send image to Claude API and generate alt text.
-
-    Args:
-        image_path: Path to the image file
-
-    Returns:
-        Generated alt text string
-    """
+    """Send image to Claude and get alt text."""
     image_bytes, media_type = resize_image_if_needed(image_path)
     image_data = base64.standard_b64encode(image_bytes).decode("utf-8")
 
     api_key = get_api_key()
     if not api_key:
-        return "Error: ANTHROPIC_API_KEY environment variable not set. Please set your API key."
+        return "Error: No API key found. Set ANTHROPIC_API_KEY environment variable or edit the script."
 
     client = anthropic.Anthropic(api_key=api_key)
 
@@ -155,16 +162,9 @@ Respond with ONLY the alt text, no additional explanation."""
 
     return message.content[0].text
 
-
 def create_html_page(alt_text: str, image_path: str) -> str:
-    """Create an HTML results page with the generated alt text."""
+    """Create an HTML page displaying the alt text."""
     image_name = Path(image_path).name
-    # Escape HTML special characters in alt text
-    escaped_alt = (alt_text
-                   .replace("&", "&amp;")
-                   .replace("<", "&lt;")
-                   .replace(">", "&gt;")
-                   .replace('"', "&quot;"))
 
     html = f'''<!DOCTYPE html>
 <html lang="en">
@@ -199,7 +199,6 @@ def create_html_page(alt_text: str, image_path: str) -> str:
             color: #666;
             font-size: 14px;
             margin-bottom: 24px;
-            word-break: break-all;
         }}
         .alt-text-container {{
             background: #f8f9fa;
@@ -237,14 +236,6 @@ def create_html_page(alt_text: str, image_path: str) -> str:
             color: #666;
             font-size: 14px;
         }}
-        code {{
-            background: #e9ecef;
-            padding: 8px 12px;
-            border-radius: 4px;
-            display: block;
-            margin-top: 8px;
-            word-break: break-all;
-        }}
     </style>
 </head>
 <body>
@@ -253,14 +244,14 @@ def create_html_page(alt_text: str, image_path: str) -> str:
         <p class="image-name">File: {image_name}</p>
 
         <div class="alt-text-container">
-            <p class="alt-text" id="altText">{escaped_alt}</p>
+            <p class="alt-text" id="altText">{alt_text}</p>
         </div>
 
         <button class="copy-btn" onclick="copyToClipboard()">Copy to Clipboard</button>
 
         <div class="instructions">
             <p><strong>Usage:</strong> Paste this alt text into your image's alt attribute:</p>
-            <code>&lt;img src="..." alt="{escaped_alt}"&gt;</code>
+            <code>&lt;img src="..." alt="{alt_text}"&gt;</code>
         </div>
     </div>
 
@@ -283,25 +274,10 @@ def create_html_page(alt_text: str, image_path: str) -> str:
 
     return html
 
-
 def main():
-    """Main entry point for the CLI."""
     if len(sys.argv) < 2:
-        print("Image Alt Text Generator")
-        print("=" * 40)
-        print()
-        print("Usage: image-alt-text <image_path>")
-        print()
-        print("Generates accessible alt text for images using Claude AI.")
-        print()
-        print("Setup:")
-        print("  Set ANTHROPIC_API_KEY environment variable with your API key")
-        print("  Get a key at: https://console.anthropic.com/")
-        print()
-        print("Windows Integration:")
-        print("  Run 'image-alt-text-install' to add right-click menu option")
-        print("  Run 'image-alt-text-uninstall' to remove it")
-        sys.exit(0)
+        print("Usage: python generate_alt_text.py <image_path>")
+        sys.exit(1)
 
     image_path = sys.argv[1]
 
@@ -324,8 +300,7 @@ def main():
         temp_path = f.name
 
     webbrowser.open(f'file://{temp_path}')
-    print("Opened result in browser")
-
+    print(f"Opened result in browser")
 
 if __name__ == "__main__":
     main()
