@@ -94,29 +94,31 @@ def resize_image_if_needed(image_path: str) -> tuple[bytes, str]:
 def get_api_key() -> str | None:
     """Resolve the Anthropic API key.
 
-    Order: hardcoded API_KEY (if set) -> ANTHROPIC_API_KEY in the process
-    environment -> the User-level ANTHROPIC_API_KEY read directly from the
-    registry. The registry fallback matters on Windows because programs
-    launched from Explorer inherit Explorer's environment, which can be a
-    stale snapshot missing variables set after Explorer started.
+    Order: hardcoded API_KEY (if set) -> on Windows, the User-level
+    ANTHROPIC_API_KEY read directly from the registry -> the process
+    environment.
+
+    The registry is preferred over the process environment on Windows
+    because programs launched from Explorer inherit Explorer's environment,
+    which is a snapshot from when Explorer started (usually last sign-in).
+    After rotating the key, that snapshot still holds the OLD value, so
+    trusting os.environ first would feed a revoked key to the API. The
+    registry always reflects the current persisted user value.
     """
     if API_KEY != "YOUR_API_KEY_HERE":
         return API_KEY
-
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    if key:
-        return key
 
     if sys.platform == "win32":
         try:
             import winreg
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as reg_key:
                 value, _ = winreg.QueryValueEx(reg_key, "ANTHROPIC_API_KEY")
-                return value or None
+                if value:
+                    return value
         except OSError:
-            return None
+            pass
 
-    return None
+    return os.environ.get("ANTHROPIC_API_KEY") or None
 
 
 def generate_alt_text(image_path: str) -> str:
@@ -299,7 +301,7 @@ def main():
         f.write(html_content)
         temp_path = f.name
 
-    webbrowser.open(f'file://{temp_path}')
+    webbrowser.open(Path(temp_path).as_uri())
     print(f"Opened result in browser")
 
 if __name__ == "__main__":

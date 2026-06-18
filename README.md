@@ -170,7 +170,7 @@ Make sure you've set the API key as described in Step 2 above.
 
 Windows programs inherit their environment from whatever launched them, and right-click menu items are launched by Explorer — which captures its environment when you sign in. So if you set or change `ANTHROPIC_API_KEY` while already signed in, the menu won't see the new value until the environment is refreshed. The most reliable way to refresh it is to **sign out and back in** (or reboot). Restarting Explorer by itself often isn't enough, because newly launched programs still inherit the cached environment.
 
-The standalone `generate_alt_text.py` script avoids this entirely: when the key isn't present in the environment, it reads `ANTHROPIC_API_KEY` directly from the registry, so it works as soon as the variable is set — no restart needed.
+The standalone `generate_alt_text.py` script avoids this entirely: on Windows it reads `ANTHROPIC_API_KEY` directly from the registry **first** (falling back to the process environment), so it always uses your current key — even right after setting or rotating it, with no restart needed.
 
 ### "Image exceeds 5 MB maximum"
 
