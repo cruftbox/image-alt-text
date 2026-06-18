@@ -276,6 +276,23 @@ def create_html_page(alt_text: str, image_path: str) -> str:
 
     return html
 
+def open_in_browser(html_path: str) -> None:
+    """Open the result page in the default browser.
+
+    On Windows, os.startfile on the file itself is the most reliable way to
+    open a local HTML file (it uses the file association directly). Falls back
+    to webbrowser with a proper file:// URI.
+    """
+    if sys.platform == "win32":
+        try:
+            os.startfile(html_path)  # type: ignore[attr-defined]
+            return
+        except OSError:
+            pass
+
+    webbrowser.open(Path(html_path).as_uri())
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python generate_alt_text.py <image_path>")
@@ -301,8 +318,9 @@ def main():
         f.write(html_content)
         temp_path = f.name
 
-    webbrowser.open(Path(temp_path).as_uri())
-    print(f"Opened result in browser")
+    open_in_browser(temp_path)
+    print("Opened result in browser")
+
 
 if __name__ == "__main__":
     main()
