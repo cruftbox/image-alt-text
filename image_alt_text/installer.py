@@ -6,6 +6,7 @@ Adds/removes right-click context menu integration for image files.
 
 import sys
 import os
+import ctypes
 import winreg
 import shutil
 
@@ -16,6 +17,13 @@ IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
 MENU_NAME = "GenerateAltText"
 MENU_TEXT = "Generate Alt Text"
 ICON = "imageres.dll,67"
+
+
+def is_admin() -> bool:
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
 
 
 def get_python_path() -> str:
@@ -59,13 +67,13 @@ def install_for_extension(ext: str) -> bool:
         key_path = f"Software\\Classes\\SystemFileAssociations\\{ext}\\shell\\{MENU_NAME}"
 
         # Create the shell key
-        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+        key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, MENU_TEXT)
         winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, ICON)
         winreg.CloseKey(key)
 
         # Create the command key
-        command_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, f"{key_path}\\command")
+        command_key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, f"{key_path}\\command")
         winreg.SetValueEx(command_key, "", 0, winreg.REG_SZ, create_command())
         winreg.CloseKey(command_key)
 
@@ -82,13 +90,13 @@ def uninstall_for_extension(ext: str) -> bool:
 
         # Delete command subkey first
         try:
-            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, f"{key_path}\\command")
+            winreg.DeleteKey(winreg.HKEY_LOCAL_MACHINE, f"{key_path}\\command")
         except FileNotFoundError:
             pass
 
         # Delete main key
         try:
-            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key_path)
+            winreg.DeleteKey(winreg.HKEY_LOCAL_MACHINE, key_path)
         except FileNotFoundError:
             pass
 
@@ -108,6 +116,11 @@ def install():
     print("Image Alt Text Generator - Installer")
     print("=" * 45)
     print()
+
+    if not is_admin():
+        print("ERROR: This installer must be run as Administrator.")
+        print("Right-click your terminal and choose 'Run as administrator', then try again.")
+        sys.exit(1)
 
     # Check for API key
     if not check_api_key():
@@ -156,6 +169,12 @@ def uninstall():
     print("Image Alt Text Generator - Uninstaller")
     print("=" * 45)
     print()
+
+    if not is_admin():
+        print("ERROR: This uninstaller must be run as Administrator.")
+        print("Right-click your terminal and choose 'Run as administrator', then try again.")
+        sys.exit(1)
+
     print("Removing context menu entries...")
     print()
 

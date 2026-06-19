@@ -81,13 +81,19 @@ $env:ANTHROPIC_API_KEY = "your-api-key-here"
 
 ### Step 3: Install Windows Integration
 
-Run the installer to add the right-click context menu:
+Run the installer **as Administrator** to add the right-click context menu:
+
+1. Open Start, search for "PowerShell" or "Command Prompt"
+2. Right-click it and choose "Run as administrator"
+3. Run:
 
 ```bash
 image-alt-text-install
 ```
 
 This adds "Generate Alt Text" to the right-click menu for image files.
+
+> **Why Administrator?** The installer writes to `HKEY_LOCAL_MACHINE`, which requires elevation. After installing, a reboot (or Explorer restart) is needed for the menu to appear.
 
 ### Alternative: Standalone Script (No Package Install)
 
@@ -106,10 +112,10 @@ The repository also includes a self-contained `generate_alt_text.py` script that
    python generate_alt_text.py path/to/image.jpg
    ```
 
-To wire the standalone script into the right-click menu manually, add a registry command for each image extension (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`) under:
+To wire the standalone script into the right-click menu manually, open an elevated PowerShell and add a registry command for each image extension (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`) under:
 
 ```
-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\<ext>\shell\GenerateAltText\command
+HKEY_LOCAL_MACHINE\SOFTWARE\Classes\SystemFileAssociations\<ext>\shell\GenerateAltText\command
 ```
 
 with the `(Default)` value:
@@ -178,9 +184,9 @@ The tool automatically resizes large images, but if you see this error, the imag
 
 ### Context menu doesn't appear
 
-1. Make sure you ran `image-alt-text-install`
-2. On Windows 11, try clicking "Show more options"
-3. Try restarting Explorer: `taskkill /f /im explorer.exe && start explorer.exe`
+1. Make sure you ran `image-alt-text-install` **as Administrator**
+2. Reboot — registry changes to HKLM require a full reboot to take effect (restarting Explorer is not sufficient)
+3. On Windows 11, try clicking "Show more options"
 
 ### "No module named 'anthropic'"
 
